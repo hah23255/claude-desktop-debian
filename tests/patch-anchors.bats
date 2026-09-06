@@ -248,6 +248,21 @@ CB_OLD='function qon(){return process.platform,Kon()}
 (0,t.spawn)(e,[`-socket`,mIt()],{stdio:[`pipe`,`pipe`,`pipe`]})
 async function ut(e,n){let{yukonSilver:r}=p.n();return r?.status===`supported`?(x(),y):!1}'
 
+# 1.46388.2 shipped bytes (A: Nxn/Rxn, B: (0,t.spawn)/RGt, C1: YU with
+# `return await wB(),EB().status==="supported"` shape replacing QH/yukonSilver).
+CB_1_46388_2='function Nxn(){return process.platform,Rxn()}
+(0,t.spawn)(e,[`-socket`,RGt()],{stdio:[`pipe`,`pipe`,`pipe`]})
+async function YU(e,t){return await wB(),EB().status===`supported`&&(Ir((0,n.join)(XU(),pIn),eB.sha).catch((()=>void 0)),IU)}'
+
+@test "cowork C1: applies to the 1.46388.2 YU return-await shape" {
+	_chunk 'index.chunk-test.js' "$CB_1_46388_2"
+	run patch_cowork_bwrap
+	[[ $status -eq 0 ]]
+	[[ $output == *'C1: blocked foreground VM download when flagged'* ]]
+	grep -qF 'async function YU(e,t){/*cowork-bwrap-dl*/if(process.platform==="linux"&&process.env.COWORK_VM_BACKEND==="bwrap")return!1;return await wB(),EB().status===`supported`' \
+		"$BUILD/index.chunk-test.js"
+}
+
 @test "cowork C1: applies to the 1.40609.1 await-prelude shape" {
 	# The regression: the prelude took this anchor to zero matches and
 	# _resolve_anchor_file failed the build for four upstream bumps.

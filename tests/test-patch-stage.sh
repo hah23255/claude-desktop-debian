@@ -91,7 +91,17 @@ main() {
 	# Globals the patch stage reads.
 	work_dir="$tmp/work"
 	app_staging_dir="$tmp/staging"
-	asar_exec=$(command -v asar || command -v npx)
+	if command -v asar &>/dev/null; then
+		asar_exec="asar"
+	else
+		mkdir -p "$tmp/bin"
+		cat > "$tmp/bin/asar" << 'EOF'
+#!/usr/bin/env bash
+exec npx --yes @electron/asar "$@"
+EOF
+		chmod +x "$tmp/bin/asar"
+		asar_exec="$tmp/bin/asar"
+	fi
 	export work_dir app_staging_dir project_root asar_exec
 	mkdir -p "$work_dir" "$app_staging_dir/resources"
 

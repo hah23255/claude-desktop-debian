@@ -49,6 +49,7 @@ active_patches=(
 	patch_quick_window
 	patch_org_plugins_path
 	patch_virtiofsd_probe
+	patch_cowork_bwrap
 	patch_tray_icon_env_override
 )
 

@@ -21,6 +21,22 @@ These documents are the source of truth. If anything in this file conflicts with
 
 This file is a fast reference for the highest-leverage rules and the project's accumulated archaeology. New policy goes in the style guides or CONTRIBUTING.md.
 
+## Golden Standard Policy (Engineering Doctrine)
+
+> Index, not container: names a rule and its enforcer, never restates a value a gate already checks. No grandfather list. No allowlist. All files, same rules, zero exceptions.
+
+### Prime Directives
+
+1. **Every rule cites exactly one enforcer**: Nothing is a rule if nothing checks it. If a rule has no automated enforcer, it must be explicitly marked as reviewer judgement.
+2. **Strict CI Gate Integrity**: Gates must be fail-closed. Swallowed exit codes (`|| true`, `|| echo`) on check steps are strictly forbidden. Any command piping to `tee` or another process must run under `set -o pipefail`.
+3. **Master Tester Doctrine (§10.1–§10.8)**:
+   - **§10.1 Witness Tests**: Every bug fix, patch anchor update, or safety-critical finding must ship with a failing witness test first. Observe RED before GREEN; never accept an untested fix.
+   - **§10.2 Observable-Outcome Naming**: Test names describe observable outcomes in domain terms, never internals.
+   - **§10.7 Evidence-Pinned Commits**: Commits closing findings cite the witness test path and exact root cause in the commit body.
+   - **§10.8 Testing the Tooling Itself**: Custom test and patch audit tooling (`tests/test-patch-stage.sh`, `tools/patch-necessity-audit.sh`) must validate its own output shape, not just exit 0.
+4. **Fix the code, not the test**: Suppressing, disabling, or deleting a failing test or active patch (e.g. removing `patch_cowork_bwrap` to bypass an anchor miss) is an anti-pattern that causes silent failures down the line. Find and fix the root cause.
+5. **Number-provenance discipline**: A report that does not name which machine or bundle version it measured is a report about an unknown machine. Always cite exact version strings and tested hashes.
+
 ## Project Overview
 
 This project repackages **Anthropic's official Claude Desktop for Linux `.deb`** into the formats Anthropic doesn't serve (RPM, AppImage, Nix, AUR) plus our own `.deb`, and wraps every format in a launcher with Linux-environment fixes (Wayland opt-in, GPU-crash recovery, `--doctor` diagnostics). Since the v3.0.0 rebase (decision [D-002](docs/decisions.md)) the contract is **patch-zero**: the official `app.asar` ships byte-identical unless a patch justifies itself against official bytes as compensating a genuine Linux gap.

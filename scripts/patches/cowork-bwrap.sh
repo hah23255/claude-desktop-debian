@@ -73,7 +73,9 @@ _CB_Q='[`"'"'"']'
 # split on.
 _CB_C1_MARKER='(?:/\*cowork-bwrap-dl\*/[^;]*;)?'
 _CB_C1_PRELUDE='[^{}]{0,80}'
-_CB_C1_TAIL='(?:const|let)\{yukonSilver:[\w$]+\}=[\w$]+(?:\.[\w$]+)*\(\);return'
+_CB_C1_LEGACY="${_CB_C1_PRELUDE}"'(?:const|let)\{yukonSilver:[\w$]+\}=[\w$]+(?:\.[\w$]+)*\(\);return'
+_CB_C1_MODERN='return\s+await\s+[\w$]+\(\),[\w$]+\(\)\.status===[`"'"'"']supported[`"'"'"']'
+_CB_C1_TAIL='(?:'"${_CB_C1_LEGACY}"'|'"${_CB_C1_MODERN}"')'
 
 patch_cowork_bwrap() {
 	echo 'Patching Cowork bwrap fallback (opt-in COWORK_VM_BACKEND=bwrap)...'
@@ -89,7 +91,7 @@ patch_cowork_bwrap() {
 	b_js=$(_resolve_anchor_file 'cowork B (helper socket argv)' \
 		"${_CB_Q}-socket${_CB_Q}") || return 1
 	c1_js=$(_resolve_anchor_file 'cowork C1 (foreground download)' \
-		"async function\s+[\w\$]+\([\w\$]+,[\w\$]+\)\{${_CB_C1_MARKER}${_CB_C1_PRELUDE}${_CB_C1_TAIL}") \
+		"async function\s+[\w\$]+\([\w\$]+,[\w\$]+\)\{${_CB_C1_MARKER}${_CB_C1_TAIL}") \
 		|| return 1
 
 	# C2 is best-effort and its anchor is absent from 1.26832.0, so an
@@ -271,29 +273,38 @@ if (codeB.includes('/*cowork-bwrap-spawn*/')) {
 // The destructure initialiser is a plain call (`=sM()`) on 1.24012.11
 // and a module-binding call (`=p.n()`) on 1.26832.0, so the callee
 // tolerates a property chain.
-const dlSrc =
-    String.raw`(async function\s+[\w$]+\([\w$]+,[\w$]+\)\{)` +
-    String.raw`([^{}]{0,80}(?:const|let)\{yukonSilver:[\w$]+\}=` +
-    String.raw`[\w$]+(?:\.[\w$]+)*\(\);return)`;
-const dlRe = new RegExp(dlSrc);
-let codeC1 = load(c1Js);
-// The prelude allowance widened this pattern, so assert it still binds
-// exactly one function rather than trusting `replace()`'s first match.
-// A second same-shaped call site is upstream growing a consumer we have
-// not reasoned about, which is a warn-and-skip, not a coin flip.
-const dlAll = [...codeC1.matchAll(new RegExp(dlSrc, 'g'))];
-if (codeC1.includes('/*cowork-bwrap-dl*/')) {
-    console.log('  C1: foreground download block already applied');
-} else if (dlAll.length > 1) {
-    console.log('  C1: WARNING — foreground download anchor matched ' +
-        dlAll.length + ' sites; refusing to guess. Re-derive the anchor.');
-} else if (dlAll.length === 1) {
-    save(c1Js, codeC1.replace(dlRe,
-        '$1/*cowork-bwrap-dl*/if(' + GATE + ')return!1;$2'));
-    console.log('  C1: blocked foreground VM download when flagged');
-} else {
-    console.log('  C1: WARNING — foreground download anchor not found; ' +
+if (!c1Js) {
+    console.log('  C1: WARNING — foreground download anchor not resolved; ' +
         'flagged runs may download an unused VM image');
+} else {
+    const dlLegacy =
+        String.raw`[^{}]{0,80}(?:const|let)\{yukonSilver:[\w$]+\}=` +
+        String.raw`[\w$]+(?:\.[\w$]+)*\(\);return`;
+    const dlModern =
+        String.raw`return\s+await\s+[\w$]+\(\),[\w$]+\(\)\.status===` + q('supported');
+    const dlSrc =
+        String.raw`(async function\s+[\w$]+\([\w$]+,[\w$]+\)\{)` +
+        String.raw`((?:` + dlLegacy + String.raw`|` + dlModern + String.raw`))`;
+    const dlRe = new RegExp(dlSrc);
+    let codeC1 = load(c1Js);
+    // The prelude allowance widened this pattern, so assert it still binds
+    // exactly one function rather than trusting `replace()`'s first match.
+    // A second same-shaped call site is upstream growing a consumer we have
+    // not reasoned about, which is a warn-and-skip, not a coin flip.
+    const dlAll = [...codeC1.matchAll(new RegExp(dlSrc, 'g'))];
+    if (codeC1.includes('/*cowork-bwrap-dl*/')) {
+        console.log('  C1: foreground download block already applied');
+    } else if (dlAll.length > 1) {
+        console.log('  C1: WARNING — foreground download anchor matched ' +
+            dlAll.length + ' sites; refusing to guess. Re-derive the anchor.');
+    } else if (dlAll.length === 1) {
+        save(c1Js, codeC1.replace(dlRe,
+            '$1/*cowork-bwrap-dl*/if(' + GATE + ')return!1;$2'));
+        console.log('  C1: blocked foreground VM download when flagged');
+    } else {
+        console.log('  C1: WARNING — foreground download anchor not found; ' +
+            'flagged runs may download an unused VM image');
+    }
 }
 
 // Warm prefetch: async function Vdo(A,e,t){if(!e){..."[warm] Warm download
